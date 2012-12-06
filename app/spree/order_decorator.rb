@@ -11,9 +11,9 @@ Spree::Order.class_eval do
 
     self.state_changes.create({
                                   :previous_state => 'cart',
-                                  :next_state     => 'complete',
-                                  :name           => 'order' ,
-                                  :user_id        => self.user_id
+                                  :next_state => 'complete',
+                                  :name => 'order',
+                                  :user_id => self.user_id
                               }, :without_protection => true)
   end
 
@@ -25,7 +25,7 @@ Spree::Order.class_eval do
 
 
   def create_tax_charge!
-    self.clear_adjustments!
+    self.adjustments.tax.each(&:destroy)
     #create tax estimate and required adjustments.
     #commit =false, do not create transaction on Avalara side.
 
@@ -44,7 +44,8 @@ Spree::Order.class_eval do
 
     self.line_items.each_with_index do |line_item, i|
       line_item_total=line_item.price*line_item.quantity
-      line=Avalara::Request::Line.new(:line_no => i, :origin_code => 1, :destination_code => 1, :qty => line_item.quantity, :amount => line_item_total)
+      line=Avalara::Request::Line.new(:line_no => i, :origin_code => 1, :destination_code => 1,
+                                      :sku => line_item.variant.sku, :qty => line_item.quantity, :amount => line_item_total)
       tax_line_items<<line
     end
 
@@ -57,8 +58,9 @@ Spree::Order.class_eval do
     addresses<<address
 
     invoice=Avalara::Request::Invoice.new
+    invoice.company_code=configatron.avalara.company_code
     invoice.doc_code=self.number
-    invoice.customer_code="TheRealReal"
+    invoice.customer_code=self.email
     invoice.addresses=addresses
     invoice.lines=tax_line_items
     #A record is created when commit is true + doc_type is SalesInvoice
