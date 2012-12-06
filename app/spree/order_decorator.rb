@@ -1,21 +1,5 @@
 Spree::Order.class_eval do
-  # Finalizes an in progress order after checkout is complete.
-  # Called after transition to complete state when payments will have been processed
-  def finalize!
-    touch :completed_at
-    Spree::InventoryUnit.assign_opening_inventory(self)
-    # lock any optional adjustments (coupon promotions, etc.)
-    adjustments.optional.each { |adjustment| adjustment.update_column('locked', true) }
-    deliver_order_confirmation_email
-    response=post_order_to_avalara(true)
 
-    self.state_changes.create({
-                                  :previous_state => 'cart',
-                                  :next_state => 'complete',
-                                  :name => 'order',
-                                  :user_id => self.user_id
-                              }, :without_protection => true)
-  end
 
 
   def update_adjustments
@@ -73,20 +57,6 @@ Spree::Order.class_eval do
   end
 
 
-  #def create_avalara_tax_adjustments(tax_lines)
-  #  puts "TAX LINE"
-  #  #Spree::TaxRate.adjust(self)
-  #  tax_lines.each { |tax_line|
-  #    puts tax_line.tax_details.each { |tax_detail|
-  #      self.adjustments.create({:amount => tax_detail.tax,
-  #                               :source => self,
-  #                               :originator => Spree::TaxRate.first,
-  #                               :locked => true,
-  #                               :label => tax_detail.tax_name}, :without_protection => true)
-  #    }
-  #  }
-  #end
-
 
   def create_avalara_tax_adjustments(response)
     puts "Creating tax adjustment"
@@ -96,6 +66,25 @@ Spree::Order.class_eval do
                              :originator => Spree::TaxRate.first,
                              :locked => true,
                              :label => "Sales Tax"}, :without_protection => true)
+  end
+
+
+  # Finalizes an in progress order after checkout is complete.
+  # Called after transition to complete state when payments will have been processed
+  def finalize!
+    touch :completed_at
+    Spree::InventoryUnit.assign_opening_inventory(self)
+    # lock any optional adjustments (coupon promotions, etc.)
+    adjustments.optional.each { |adjustment| adjustment.update_column('locked', true) }
+    deliver_order_confirmation_email
+    response=post_order_to_avalara(true)
+
+    self.state_changes.create({
+                                  :previous_state => 'cart',
+                                  :next_state => 'complete',
+                                  :name => 'order',
+                                  :user_id => self.user_id
+                              }, :without_protection => true)
   end
 
 
